@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.1...arbiter_machines/v0.1.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* cross builds no longer compile for the host ([feeb4f0](https://github.com/seuros/arbiter_machines/commit/feeb4f09e5d0b20b81a3fffb35562594b80e2e0a))
+
 ## [0.1.1](https://github.com/seuros/arbiter_machines/compare/arbiter_machines-v0.1.0...arbiter_machines/v0.1.1) (2026-11-06)
 
 
