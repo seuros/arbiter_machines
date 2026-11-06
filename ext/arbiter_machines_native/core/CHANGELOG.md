@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/seuros/arbiter_machines/compare/arbiter-machines-v0.2.1...arbiter-machines-v0.2.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* crates.io keywords and categories for the core ([10c8cad](https://github.com/seuros/arbiter_machines/commit/10c8cad0f35cb6c44dbe0e5573275f2267afc306))
+
 ## [0.2.1](https://github.com/seuros/arbiter_machines/compare/arbiter-machines-v0.2.0...arbiter-machines-v0.2.1) (2026-11-06)
 
 
