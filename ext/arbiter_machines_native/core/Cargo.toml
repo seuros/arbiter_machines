@@ -7,5 +7,7 @@ license.workspace = true
 description = "Bounded ownership, priority inheritance, ceilings, and wait-cycle detection"
 readme = "README.md"
 exclude = ["src/**/tests.rs", "tests/"]
+keywords = ["priority-inheritance", "priority-ceiling", "deadlock", "arbitration", "no-std"]
+categories = ["no-std", "algorithms", "concurrency"]
 [lints]
 workspace = true
