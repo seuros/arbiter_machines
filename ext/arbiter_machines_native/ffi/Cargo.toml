@@ -1,0 +1,21 @@
+[package]
+name = "arbiter_machines_native"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Native Ruby bindings for bounded priority arbitration"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+arbiter-machines.workspace = true
+magnus.workspace = true
+rb-sys.workspace = true
+
+[lints]
+workspace = true

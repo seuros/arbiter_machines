@@ -1,0 +1,12 @@
+module ArbiterMachines
+  VERSION: String
+  class Arbiter
+    def self.new: (priorities: Array[Integer], ceilings: Array[Integer], protocol: :inheritance | :immediate_ceiling) -> instance
+    def acquire: (task: Integer, resource: Integer) -> [Symbol, Integer?]
+    def release: (task: Integer, resource: Integer) -> bool
+    def cancel_wait: (task: Integer) -> bool
+    def effective_priorities: () -> Array[Integer]
+    def task_count: () -> Integer
+    def resource_count: () -> Integer
+  end
+end
