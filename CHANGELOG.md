@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.2...arbiter_machines/v0.1.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* keep test sources out of the packaged gem and crate ([513f507](https://github.com/seuros/arbiter_machines/commit/513f5074a2058f23742ee47b2289cd8b8872d6d3))
+
 ## [0.1.2](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.1...arbiter_machines/v0.1.2) (2026-11-06)
 
 
