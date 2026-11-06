@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.4...arbiter_machines/v0.1.5) (2026-11-06)
+
+
+### Bug Fixes
+
+* share RArray count conversion in arbiter ffi ([0a026aa](https://github.com/seuros/arbiter_machines/commit/0a026aac2e17efecc2546bb8b9532b89f516e7f0))
+
 ## [0.1.4](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.3...arbiter_machines/v0.1.4) (2026-11-06)
 
 
