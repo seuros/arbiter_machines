@@ -53,6 +53,14 @@ fn resources<const T: usize>(
     sized!(1, 2, 3, 4, 5, 6, 7, 8)
 }
 
+/// Every element of `array` as a non-negative `Integer` count.
+fn counts(array: RArray) -> Result<Vec<u32>, Error> {
+    array
+        .into_iter()
+        .map(|v| Count::try_convert(v).map(|v| v.0))
+        .collect()
+}
+
 #[magnus::wrap(class = "ArbiterMachines::Arbiter", free_immediately, size)]
 struct Wrapper {
     core: RefCell<Box<dyn Decisions>>,
@@ -79,14 +87,8 @@ impl Wrapper {
                 ));
             }
         };
-        let base = priorities
-            .into_iter()
-            .map(|v| Count::try_convert(v).map(|v| v.0))
-            .collect::<Result<Vec<_>, _>>()?;
-        let ceilings = ceilings
-            .into_iter()
-            .map(|v| Count::try_convert(v).map(|v| v.0))
-            .collect::<Result<Vec<_>, _>>()?;
+        let base = counts(priorities)?;
+        let ceilings = counts(ceilings)?;
         macro_rules! sized {
             ($($n:literal),*) => {
                 match base.len() {
