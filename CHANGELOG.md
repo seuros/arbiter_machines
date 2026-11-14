@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.3.0...arbiter_machines/v0.3.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** require matryona-machines &gt;= 0.3 ([79ee181](https://github.com/seuros/arbiter_machines/commit/79ee181ef50fa23d47db1746f780057923ba0592))
+
 ## [0.3.0](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.2.0...arbiter_machines/v0.3.0) (2026-11-14)
 
 
