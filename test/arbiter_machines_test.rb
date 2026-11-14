@@ -142,6 +142,22 @@ class ArbiterMachinesTest < Minitest::Test
     assert_raises(ArgumentError) { Arbiter.new([1], [1]) }
   end
 
+  def test_an_array_subclass_is_refused
+    subclass = Class.new(Array)
+    error = assert_raises(TypeError) { Arbiter.new(subclass[1], [1], :inheritance) }
+    assert_equal 'base must be an Array of Integers', error.message
+    error = assert_raises(TypeError) { Arbiter.new([1], subclass[1], :inheritance) }
+    assert_equal 'ceilings must be an Array of Integers', error.message
+    assert_equal 1, Arbiter.new([1], [1].tap(&:singleton_class), :inheritance).task_count
+  end
+
+  def test_frozen_is_checked_before_the_arguments
+    a = arbiter.freeze
+    assert_raises(FrozenError) { a.acquire(0.5, nil) }
+    assert_raises(FrozenError) { a.release('1', -1) }
+    assert_raises(FrozenError) { a.cancel_wait(nil) }
+  end
+
   def test_gc_freeze_snapshots_and_independent_instances
     a = arbiter
     a.acquire(0, 0)

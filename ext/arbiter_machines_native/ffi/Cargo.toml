@@ -16,6 +16,7 @@ doctest = false
 arbiter-machines.workspace = true
 magnus.workspace = true
 rb-sys.workspace = true
+matryona-machines = { workspace = true, features = ["ruby"] }
 
 [lints]
 workspace = true

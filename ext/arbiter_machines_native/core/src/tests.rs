@@ -1,21 +1,9 @@
 extern crate std;
 
 use super::*;
-use core::fmt::Debug;
+use matryona_machines::testing::{refuses, unchanged};
 
 mod model;
-
-/// The call answers `expected` (a refusal or an honoured repeat) and leaves
-/// `arbiter` exactly as it was.
-fn unchanged<const T: usize, const R: usize, O: Copy + Debug + PartialEq>(
-    arbiter: &mut Arbiter<T, R>,
-    expected: Result<O, Refusal>,
-    call: impl FnOnce(&mut Arbiter<T, R>) -> Result<O, Refusal>,
-) {
-    let before = arbiter.clone();
-    assert_eq!(call(arbiter), expected);
-    assert_eq!(*arbiter, before, "{expected:?} changed the arbiter");
-}
 
 #[test]
 fn inheritance_is_transitive_and_restores_after_release() {
@@ -56,44 +44,42 @@ fn every_refusal_changes_nothing() {
     assert_eq!(arbiter.acquire(0, 0), Ok(Acquisition::Granted));
     assert_eq!(arbiter.acquire(1, 1), Ok(Acquisition::Granted));
     assert_eq!(arbiter.acquire(0, 1), Ok(Acquisition::Blocked(1)));
-    unchanged(&mut arbiter, Err(Refusal::Deadlock), |a| a.acquire(1, 0));
-    unchanged(&mut arbiter, Err(Refusal::UnknownTask), |a| a.acquire(2, 0));
-    unchanged(&mut arbiter, Err(Refusal::UnknownResource), |a| {
-        a.acquire(0, 2)
-    });
-    unchanged(&mut arbiter, Err(Refusal::UnknownTask), |a| a.acquire(2, 2));
-    unchanged(&mut arbiter, Err(Refusal::WrongOwner), |a| a.release(0, 1));
-    unchanged(&mut arbiter, Err(Refusal::UnknownTask), |a| a.release(2, 0));
-    unchanged(&mut arbiter, Err(Refusal::UnknownResource), |a| {
-        a.release(0, 2)
-    });
-    unchanged(&mut arbiter, Err(Refusal::UnknownTask), |a| {
-        a.cancel_wait(2)
-    });
+    refuses(&mut arbiter, Refusal::Deadlock, |a| a.acquire(1, 0));
+    refuses(&mut arbiter, Refusal::UnknownTask, |a| a.acquire(2, 0));
+    refuses(&mut arbiter, Refusal::UnknownResource, |a| a.acquire(0, 2));
+    refuses(&mut arbiter, Refusal::UnknownTask, |a| a.acquire(2, 2));
+    refuses(&mut arbiter, Refusal::WrongOwner, |a| a.release(0, 1));
+    refuses(&mut arbiter, Refusal::UnknownTask, |a| a.release(2, 0));
+    refuses(&mut arbiter, Refusal::UnknownResource, |a| a.release(0, 2));
+    refuses(&mut arbiter, Refusal::UnknownTask, |a| a.cancel_wait(2));
     assert_eq!(arbiter.release(1, 1), Ok(()));
     // No history is kept, so a repeated release cannot be proven.
-    unchanged(&mut arbiter, Err(Refusal::Unowned), |a| a.release(1, 1));
-    unchanged(&mut arbiter, Err(Refusal::Unowned), |a| a.release(0, 1));
+    refuses(&mut arbiter, Refusal::Unowned, |a| a.release(1, 1));
+    refuses(&mut arbiter, Refusal::Unowned, |a| a.release(0, 1));
 }
 
 #[test]
 fn repeats_are_honoured_and_change_nothing() {
     let mut arbiter = Arbiter::new([1, 2], [2; 2], Protocol::Inheritance);
     assert_eq!(arbiter.acquire(0, 0), Ok(Acquisition::Granted));
-    unchanged(&mut arbiter, Ok(Acquisition::AlreadyOwned), |a| {
-        a.acquire(0, 0)
-    });
+    assert_eq!(
+        unchanged(&mut arbiter, |a| a.acquire(0, 0)),
+        Ok(Acquisition::AlreadyOwned)
+    );
     assert_eq!(arbiter.acquire(1, 0), Ok(Acquisition::Blocked(0)));
-    unchanged(&mut arbiter, Ok(Acquisition::Blocked(0)), |a| {
-        a.acquire(1, 0)
-    });
+    assert_eq!(
+        unchanged(&mut arbiter, |a| a.acquire(1, 0)),
+        Ok(Acquisition::Blocked(0))
+    );
     assert_eq!(arbiter.cancel_wait(1), Ok(Cancelling::Cancelled));
-    unchanged(&mut arbiter, Ok(Cancelling::NotWaiting), |a| {
-        a.cancel_wait(1)
-    });
-    unchanged(&mut arbiter, Ok(Cancelling::NotWaiting), |a| {
-        a.cancel_wait(0)
-    });
+    assert_eq!(
+        unchanged(&mut arbiter, |a| a.cancel_wait(1)),
+        Ok(Cancelling::NotWaiting)
+    );
+    assert_eq!(
+        unchanged(&mut arbiter, |a| a.cancel_wait(0)),
+        Ok(Cancelling::NotWaiting)
+    );
 }
 
 #[test]
@@ -104,21 +90,20 @@ fn ceiling_admission_blocks_even_free_resources() {
     assert_eq!(arbiter.acquire(1, 1), Ok(Acquisition::Blocked(0)));
     assert_eq!(arbiter.release(0, 0), Ok(()));
     assert_eq!(arbiter.acquire(1, 1), Ok(Acquisition::Granted));
-    unchanged(&mut arbiter, Ok(Acquisition::AlreadyOwned), |a| {
-        a.acquire(1, 1)
-    });
+    assert_eq!(
+        unchanged(&mut arbiter, |a| a.acquire(1, 1)),
+        Ok(Acquisition::AlreadyOwned)
+    );
     let mut misdeclared = Arbiter::new([4], [3], Protocol::ImmediateCeiling);
-    unchanged(&mut misdeclared, Err(Refusal::AboveCeiling), |a| {
-        a.acquire(0, 0)
-    });
+    refuses(&mut misdeclared, Refusal::AboveCeiling, |a| a.acquire(0, 0));
 }
 
 #[test]
 fn readers_and_empty_shapes_are_well_defined() {
     let mut none = Arbiter::<0, 0>::new([], [], Protocol::Inheritance);
-    unchanged(&mut none, Err(Refusal::UnknownTask), |a| a.acquire(0, 0));
-    unchanged(&mut none, Err(Refusal::UnknownTask), |a| a.release(0, 0));
-    unchanged(&mut none, Err(Refusal::UnknownTask), |a| a.cancel_wait(0));
+    refuses(&mut none, Refusal::UnknownTask, |a| a.acquire(0, 0));
+    refuses(&mut none, Refusal::UnknownTask, |a| a.release(0, 0));
+    refuses(&mut none, Refusal::UnknownTask, |a| a.cancel_wait(0));
     assert_eq!((none.task_count(), none.resource_count()), (0, 0));
     assert_eq!(none.effective_priorities(), [0_u32; 0]);
     let arbiter = Arbiter::new([1, 2, 3], [9], Protocol::ImmediateCeiling);

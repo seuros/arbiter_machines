@@ -1,14 +1,12 @@
 //! Erase exact task/resource const-generic counts without adding participants.
 
-use crate::{Index, Priority};
 use arbiter_machines::{Acquisition, Arbiter, Cancelling, Protocol, Refusal};
 use magnus::{
-    Error, IntoValue, RArray, RClass, RModule, Ruby, Symbol, TryConvert, Value, function, method,
-    prelude::*, typed_data::Obj, value::Opaque,
+    Error, IntoValue, RModule, Ruby, Value, function, method, prelude::*, typed_data::Obj,
 };
+use matryona_machines::ruby::{Class, Registry, Symbols, exact_array, integer, keep, symbol};
 use std::any::Any;
 use std::cell::RefCell;
-use std::sync::OnceLock;
 
 /// The most tasks, and the most resources, an arbiter built from Ruby has:
 /// every count in `0..=CAPACITY` is compiled.
@@ -70,6 +68,22 @@ impl<const T: usize, const R: usize> Decisions for Arbiter<T, R> {
     }
 }
 
+/// An arbiter of any compiled counts, as clone-then-keep holds it: a copy to
+/// decide on, and equality with the state it was copied from.
+struct Core(Box<dyn Decisions>);
+
+impl Clone for Core {
+    fn clone(&self) -> Self {
+        Self(self.0.boxed())
+    }
+}
+
+impl PartialEq for Core {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.same(other.0.as_ref())
+    }
+}
+
 fn range_error(ruby: &Ruby, message: &'static str) -> Error {
     Error::new(ruby.exception_range_error(), message)
 }
@@ -108,193 +122,170 @@ fn sized<const T: usize>(
     )
 }
 
-/// Every element of `value`, an Array, as a priority.
-fn priorities(ruby: &Ruby, value: Value) -> Result<Vec<u32>, Error> {
-    let Some(array) = RArray::from_value(value) else {
-        return Err(Error::new(
-            ruby.exception_type_error(),
-            "base priorities and ceilings must be Arrays of Integers",
-        ));
+/// Every element of `value`, exactly an Array (no subclass), as a priority;
+/// `name` is the argument.
+fn priorities(ruby: &Ruby, value: Value, name: &'static str) -> Result<Vec<u32>, Error> {
+    let message = if name == "base" {
+        "base must be an Array of Integers"
+    } else {
+        "ceilings must be an Array of Integers"
     };
-    array
+    exact_array(ruby, value, message)?
         .into_iter()
-        .map(|v| Priority::try_convert(v).map(|v| v.0))
+        .map(|v| integer(v, name))
         .collect()
 }
 
-fn protocol_from(ruby: &Ruby, value: Value) -> Result<Protocol, Error> {
-    let Some(symbol) = Symbol::from_value(value) else {
-        return Err(Error::new(
-            ruby.exception_type_error(),
-            "protocol must be a Symbol",
-        ));
-    };
-    match symbol.name()?.as_ref() {
-        "inheritance" => Ok(Protocol::Inheritance),
-        "immediate_ceiling" => Ok(Protocol::ImmediateCeiling),
-        _ => Err(range_error(
-            ruby,
-            "protocol must be :inheritance or :immediate_ceiling",
-        )),
+matryona_machines::symbols! {
+    /// The core's protocols as Symbols.
+    Protocols for Protocol as "protocol" {
+        Inheritance => "inheritance",
+        ImmediateCeiling => "immediate_ceiling",
     }
 }
 
-const fn protocol_name(protocol: Protocol) -> &'static str {
-    match protocol {
-        Protocol::Inheritance => "inheritance",
-        Protocol::ImmediateCeiling => "immediate_ceiling",
+matryona_machines::symbols! {
+    /// The core's refusals as Symbols: the snake case of each variant.
+    Refusals for Refusal as "a refusal" {
+        UnknownTask => "unknown_task",
+        UnknownResource => "unknown_resource",
+        AboveCeiling => "above_ceiling",
+        Deadlock => "deadlock",
+        Unowned => "unowned",
+        WrongOwner => "wrong_owner",
+    }
+}
+
+matryona_machines::symbols! {
+    /// The core's honoured `cancel_wait` answers as Symbols.
+    Cancellings for Cancelling as "a cancellation" {
+        Cancelled => "cancelled",
+        NotWaiting => "not_waiting",
     }
 }
 
 /// Ruby symbol of a refusal: the snake case of the core variant.
 fn refusal(ruby: &Ruby, refused: Refusal) -> Value {
-    ruby.to_symbol(match refused {
-        Refusal::UnknownTask => "unknown_task",
-        Refusal::UnknownResource => "unknown_resource",
-        Refusal::AboveCeiling => "above_ceiling",
-        Refusal::Deadlock => "deadlock",
-        Refusal::Unowned => "unowned",
-        Refusal::WrongOwner => "wrong_owner",
-    })
-    .as_value()
+    Refusals::symbol(ruby, refused).as_value()
 }
 
 /// `ArbiterMachines::Blocked`, resolved once at init: swapping the constant
 /// later changes nothing the arbiter builds.
-static BLOCKED: OnceLock<Opaque<RClass>> = OnceLock::new();
-
-fn blocked_class(ruby: &Ruby) -> Result<RClass, Error> {
-    BLOCKED
-        .get()
-        .map(|class| ruby.get_inner(*class))
-        .ok_or_else(|| {
-            Error::new(
-                ruby.exception_runtime_error(),
-                "the arbiter_machines extension is not initialised",
-            )
-        })
+struct Classes {
+    blocked: Class,
 }
 
+static CLASSES: Registry<Classes> = Registry::new("arbiter_machines");
+
 /// What `Blocked.new` stores: the resource index, validated as the core's `usize`.
-const fn checked_blocked(resource: Index) -> usize {
-    resource.0
+fn checked_blocked(resource: Value) -> Result<usize, Error> {
+    integer(resource, "resource")
 }
 
 #[magnus::wrap(class = "ArbiterMachines::Arbiter", free_immediately, size)]
 struct Wrapper {
-    core: RefCell<Box<dyn Decisions>>,
+    core: RefCell<Core>,
 }
 
 impl Wrapper {
     fn new(ruby: &Ruby, base: Value, ceilings: Value, protocol: Value) -> Result<Self, Error> {
-        let base = priorities(ruby, base)?;
-        let ceilings = priorities(ruby, ceilings)?;
-        let protocol = protocol_from(ruby, protocol)?;
+        let base = priorities(ruby, base, "base")?;
+        let ceilings = priorities(ruby, ceilings, "ceilings")?;
+        let protocol = Protocols::parse(ruby, protocol)?;
         let core = by_count!(
             base.len(),
             N => sized::<N>(ruby, std::array::from_fn(|i| base[i]), &ceilings, protocol)?,
             return Err(range_error(ruby, "at most 8 tasks (base priorities)"))
         );
         Ok(Self {
-            core: RefCell::new(core),
+            core: RefCell::new(Core(core)),
         })
     }
 
     fn acquire(
         ruby: &Ruby,
         rb_self: Obj<Self>,
-        task: Index,
-        resource: Index,
+        task: Value,
+        resource: Value,
     ) -> Result<Value, Error> {
+        // Frozen first, then the arguments: everything that can raise
+        // happens before the core decides.
         rb_self.check_frozen()?;
-        // Everything that can raise happens before the core decides.
-        let blocked = blocked_class(ruby)?;
+        let (task, resource) = (integer(task, "task")?, integer(resource, "resource")?);
+        let blocked = CLASSES.get(ruby)?.blocked.get(ruby);
         // Clone-then-keep: the core decides on a copy, under no borrow while
         // Ruby runs, and the copy is stored only once the answer exists.
-        let before = rb_self.core.borrow().boxed();
-        let mut after = before.boxed();
-        let answer = match after.acquire(task.0, resource.0) {
-            Ok(Acquisition::Granted) => ruby.to_symbol("granted").as_value(),
-            Ok(Acquisition::AlreadyOwned) => ruby.to_symbol("already_owned").as_value(),
-            Ok(Acquisition::Blocked(index)) => blocked.funcall("new", (index,))?,
-            Err(refused) => return Ok(refusal(ruby, refused)),
-        };
-        // `Blocked.new` may have frozen or changed the arbiter: then nothing
-        // is applied.
-        rb_self.check_frozen()?;
-        let mut held = rb_self.core.borrow_mut();
-        if !held.same(before.as_ref()) {
-            return Err(Error::new(
-                ruby.exception_runtime_error(),
-                "the arbiter changed while the answer was built; the acquire was not applied",
-            ));
-        }
-        *held = after;
-        drop(held);
-        Ok(answer)
+        keep(
+            ruby,
+            rb_self,
+            &rb_self.core,
+            |core| core.0.acquire(task, resource),
+            |acquired| match acquired {
+                Ok(Acquisition::Granted) => Ok(symbol(ruby, "granted").as_value()),
+                Ok(Acquisition::AlreadyOwned) => Ok(symbol(ruby, "already_owned").as_value()),
+                Ok(Acquisition::Blocked(index)) => blocked.funcall("new", (index,)),
+                Err(refused) => Ok(refusal(ruby, refused)),
+            },
+        )
     }
 
     fn release(
         ruby: &Ruby,
         rb_self: Obj<Self>,
-        task: Index,
-        resource: Index,
+        task: Value,
+        resource: Value,
     ) -> Result<Value, Error> {
         rb_self.check_frozen()?;
-        let released = rb_self.core.borrow_mut().release(task.0, resource.0);
+        let (task, resource) = (integer(task, "task")?, integer(resource, "resource")?);
+        let released = rb_self.core.borrow_mut().0.release(task, resource);
         Ok(match released {
-            Ok(()) => ruby.to_symbol("released").as_value(),
+            Ok(()) => symbol(ruby, "released").as_value(),
             Err(refused) => refusal(ruby, refused),
         })
     }
 
-    fn cancel_wait(ruby: &Ruby, rb_self: Obj<Self>, task: Index) -> Result<Value, Error> {
+    fn cancel_wait(ruby: &Ruby, rb_self: Obj<Self>, task: Value) -> Result<Value, Error> {
         rb_self.check_frozen()?;
-        let cancelled = rb_self.core.borrow_mut().cancel_wait(task.0);
+        let task = integer(task, "task")?;
+        let cancelled = rb_self.core.borrow_mut().0.cancel_wait(task);
         Ok(match cancelled {
-            Ok(Cancelling::Cancelled) => ruby.to_symbol("cancelled").as_value(),
-            Ok(Cancelling::NotWaiting) => ruby.to_symbol("not_waiting").as_value(),
+            Ok(cancelling) => Cancellings::symbol(ruby, cancelling).as_value(),
             Err(refused) => refusal(ruby, refused),
         })
     }
 
     fn effective_priorities(&self) -> Vec<u32> {
-        self.core.borrow().effective_priorities()
+        self.core.borrow().0.effective_priorities()
     }
 
-    fn owner(&self, resource: Index) -> Option<usize> {
-        self.core.borrow().owner(resource.0)
+    fn owner(&self, resource: Value) -> Result<Option<usize>, Error> {
+        let resource = integer(resource, "resource")?;
+        Ok(self.core.borrow().0.owner(resource))
     }
 
-    fn waiting_on(&self, task: Index) -> Option<usize> {
-        self.core.borrow().waiting_on(task.0)
+    fn waiting_on(&self, task: Value) -> Result<Option<usize>, Error> {
+        let task = integer(task, "task")?;
+        Ok(self.core.borrow().0.waiting_on(task))
     }
 
     fn protocol(ruby: &Ruby, rb_self: &Self) -> Value {
-        let protocol = rb_self.core.borrow().protocol();
-        ruby.to_symbol(protocol_name(protocol))
-            .into_value_with(ruby)
+        let protocol = rb_self.core.borrow().0.protocol();
+        Protocols::symbol(ruby, protocol).into_value_with(ruby)
     }
 
     fn task_count(&self) -> usize {
-        self.core.borrow().task_count()
+        self.core.borrow().0.task_count()
     }
 
     fn resource_count(&self) -> usize {
-        self.core.borrow().resource_count()
+        self.core.borrow().0.resource_count()
     }
 }
 
 pub fn define(ruby: &Ruby, module: RModule) -> Result<(), Error> {
-    let blocked: RClass = module.const_get("Blocked")?;
     // Held for good: removing the constant must not let the GC take it.
-    ruby.gc_register_mark_object(blocked);
-    BLOCKED.set(blocked.into()).map_err(|_| {
-        Error::new(
-            ruby.exception_runtime_error(),
-            "the arbiter_machines extension was initialised twice",
-        )
-    })?;
+    let blocked = Class::resolve(ruby, module, "Blocked")?;
+    CLASSES.set(ruby, Classes { blocked })?;
     module.define_singleton_method("__blocked", function!(checked_blocked, 1))?;
     let class = module.define_class("Arbiter", ruby.class_object())?;
     class.const_set("TASK_CAPACITY", CAPACITY)?;

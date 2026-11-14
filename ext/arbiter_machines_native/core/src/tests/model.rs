@@ -1,5 +1,6 @@
 //! Randomized comparison against a plain reference model.
 use super::*;
+use matryona_machines::testing::XorShift64;
 use std::vec::Vec;
 
 const TASKS: usize = 4;
@@ -119,23 +120,14 @@ impl Model {
     }
 }
 
-struct Random(u64);
+/// A draw in `0..bound`.
+fn below(random: &mut XorShift64, bound: usize) -> usize {
+    usize::try_from(random.below(bound as u64)).expect("below a usize bound")
+}
 
-impl Random {
-    fn next(&mut self) -> u64 {
-        self.0 ^= self.0 << 13;
-        self.0 ^= self.0 >> 7;
-        self.0 ^= self.0 << 17;
-        self.0
-    }
-
-    fn below(&mut self, bound: usize) -> usize {
-        usize::try_from(self.next() % bound as u64).expect("below a usize bound")
-    }
-
-    fn priority(&mut self, bound: u64) -> u32 {
-        u32::try_from(self.next() % bound).expect("below a u32 bound")
-    }
+/// A priority in `0..bound`.
+fn priority(random: &mut XorShift64, bound: u64) -> u32 {
+    u32::try_from(random.below(bound)).expect("below a u32 bound")
 }
 
 fn agrees(arbiter: &Arbiter<TASKS, RESOURCES>, model: &Model) {
@@ -149,9 +141,9 @@ fn agrees(arbiter: &Arbiter<TASKS, RESOURCES>, model: &Model) {
 }
 
 fn run(seed: u64, protocol: Protocol) -> [usize; 3] {
-    let mut random = Random(seed);
-    let base: [u32; TASKS] = core::array::from_fn(|_| random.priority(6));
-    let ceilings: [u32; RESOURCES] = core::array::from_fn(|_| 2 + random.priority(5));
+    let mut random = XorShift64::new(seed);
+    let base: [u32; TASKS] = core::array::from_fn(|_| priority(&mut random, 6));
+    let ceilings: [u32; RESOURCES] = core::array::from_fn(|_| 2 + priority(&mut random, 5));
     let mut arbiter = Arbiter::new(base, ceilings, protocol);
     let mut model = Model {
         base: base.to_vec(),
@@ -164,9 +156,9 @@ fn run(seed: u64, protocol: Protocol) -> [usize; 3] {
     let mut tally = [0; 3];
     for _ in 0..400 {
         let before = arbiter.clone();
-        let task = random.below(TASKS + 1);
-        let resource = random.below(RESOURCES + 1);
-        let unchanged = match random.below(5) {
+        let task = below(&mut random, TASKS + 1);
+        let resource = below(&mut random, RESOURCES + 1);
+        let unchanged = match below(&mut random, 5) {
             0 | 1 => {
                 let answer = arbiter.acquire(task, resource);
                 assert_eq!(answer, model.acquire(task, resource));

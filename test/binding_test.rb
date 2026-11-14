@@ -133,4 +133,12 @@ class BindingTest < Minitest::Test
     assert_nil seen
     assert_equal 0, a.waiting_on(1)
   end
+
+  def test_the_extension_alone_is_a_name_error
+    lib = File.expand_path('../lib', __dir__)
+    script = 'begin; require "arbiter_machines_native/arbiter_machines_native"; ' \
+             'rescue NameError => e; print e.class; end'
+    output = IO.popen([RbConfig.ruby, '-I', lib, '-e', script], err: %i[child out], &:read)
+    assert_equal 'NameError', output
+  end
 end
