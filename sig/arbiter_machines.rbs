@@ -1,11 +1,53 @@
 module ArbiterMachines
   VERSION: String
+
+  # Refusals: the call was not honoured and changed nothing. Every reason has
+  # its own symbol; there is no catch-all.
+  type refusal = :unknown_task | :unknown_resource | :above_ceiling | :deadlock | :unowned | :wrong_owner
+
+  type protocol = :inheritance | :immediate_ceiling
+
+  # The task must wait; its wait on `resource` is recorded. `resource` is a
+  # non-negative Integer that fits a usize: RangeError otherwise (TypeError for
+  # a non-Integer), whether the arbiter built it or you did. Sealed: subclassing
+  # raises TypeError and `allocate` is undefined.
+  class Blocked < Data
+    attr_reader resource: Integer
+    def self.new: (Integer resource) -> Blocked
+                | (resource: Integer) -> Blocked
+  end
+
   class Arbiter
-    def self.new: (priorities: Array[Integer], ceilings: Array[Integer], protocol: :inheritance | :immediate_ceiling) -> instance
-    def acquire: (task: Integer, resource: Integer) -> [Symbol, Integer?]
-    def release: (task: Integer, resource: Integer) -> bool
-    def cancel_wait: (task: Integer) -> bool
+    # Every count of tasks and of resources in 0..8 is compiled in.
+    TASK_CAPACITY: Integer
+    RESOURCE_CAPACITY: Integer
+
+    # Positional, like `Arbiter::new(base, ceilings, protocol)`: one base
+    # priority per task and one ceiling per resource, Integers in 0..2**32.
+    # TypeError for a non-Array, a non-Integer or a non-Symbol; RangeError for
+    # a value out of range, more than 8 tasks or resources, or an unknown protocol.
+    def self.new: (Array[Integer] base, Array[Integer] ceilings, protocol protocol) -> Arbiter
+    # Honoured: :granted, :already_owned (a repeat, changes nothing), Blocked
+    # (the wait is recorded; asked again while the same resource blocks, the
+    # same answer and nothing changes). Refused: :unknown_task,
+    # :unknown_resource, :above_ceiling, :deadlock. Not applied when building
+    # the Blocked raises (that exception), freezes the arbiter (FrozenError) or
+    # changes it (RuntimeError).
+    def acquire: (Integer task, Integer resource) -> (:granted | :already_owned | Blocked | :unknown_task | :unknown_resource | :above_ceiling | :deadlock)
+    # Honoured: :released (every wait on the resource is cleared). Refused:
+    # :unknown_task, :unknown_resource, :unowned (a repeated release included:
+    # no history is kept), :wrong_owner.
+    def release: (Integer task, Integer resource) -> (:released | :unknown_task | :unknown_resource | :unowned | :wrong_owner)
+    # Honoured: :cancelled, :not_waiting (a repeat, changes nothing).
+    # Refused: :unknown_task.
+    def cancel_wait: (Integer task) -> (:cancelled | :not_waiting | :unknown_task)
+    # A fresh Array, one Integer per task.
     def effective_priorities: () -> Array[Integer]
+    # The task owning `resource`; nil when it is free or there is no such resource.
+    def owner: (Integer resource) -> Integer?
+    # The resource `task` waits on; nil when it is not waiting or there is no such task.
+    def waiting_on: (Integer task) -> Integer?
+    def protocol: () -> protocol
     def task_count: () -> Integer
     def resource_count: () -> Integer
   end
