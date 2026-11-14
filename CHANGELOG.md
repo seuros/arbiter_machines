@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.2.0...arbiter_machines/v0.3.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* adopt matryona-machines 0.2 (symbols! tables, exact arrays, frozen-first)
+
+### Features
+
+* adopt matryona-machines 0.2 (symbols! tables, exact arrays, frozen-first) ([73fb802](https://github.com/seuros/arbiter_machines/commit/73fb8026556f3fb5982c5e65411d9bc03d36c60d))
+
 ## [0.2.0](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.1.5...arbiter_machines/v0.2.0) (2026-11-14)
 
 
