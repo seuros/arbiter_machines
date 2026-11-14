@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/seuros/arbiter_machines/compare/arbiter-machines-v0.2.2...arbiter-machines-v0.3.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* answer Result with honoured repeats, clone-then-keep acquire, Blocked validated, sealed and resolved at load
+
+### Features
+
+* answer Result with honoured repeats, clone-then-keep acquire, Blocked validated, sealed and resolved at load ([11a6258](https://github.com/seuros/arbiter_machines/commit/11a6258887d32dd37ea4d2c687528bab463db843))
+
 ## [0.2.2](https://github.com/seuros/arbiter_machines/compare/arbiter-machines-v0.2.1...arbiter-machines-v0.2.2) (2026-11-06)
 
 
