@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.3.2...arbiter_machines/v0.3.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* replace runtime indexing in the arbiter core with checked lookups ([5112385](https://github.com/seuros/arbiter_machines/commit/511238591c81c6765c0bdaf844cf5d27afd6ddbb))
+
 ## [0.3.2](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.3.1...arbiter_machines/v0.3.2) (2026-11-14)
 
 
