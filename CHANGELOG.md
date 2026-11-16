@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.3.3...arbiter_machines/v0.3.4) (2026-11-16)
+
+
+### Bug Fixes
+
+* fix wrapped classes at load so building a value runs no Ruby ([7339ce9](https://github.com/seuros/arbiter_machines/commit/7339ce9e148bbbec3e1a8acfbb82410f45b4e20d))
+
 ## [0.3.3](https://github.com/seuros/arbiter_machines/compare/arbiter_machines/v0.3.2...arbiter_machines/v0.3.3) (2026-11-16)
 
 
