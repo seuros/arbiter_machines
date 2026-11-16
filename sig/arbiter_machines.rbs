@@ -51,4 +51,9 @@ module ArbiterMachines
     def task_count: () -> Integer
     def resource_count: () -> Integer
   end
+
+  # Native check behind `Blocked#initialize`: the resource back when it is a
+  # non-negative Integer that fits a usize, RangeError (TypeError for a
+  # non-Integer) otherwise.
+  private def self.__blocked: (Integer resource) -> Integer
 end

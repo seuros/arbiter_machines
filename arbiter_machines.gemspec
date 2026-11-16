@@ -8,8 +8,9 @@ Gem::Specification.new do |spec|
   spec.authors = ['Abdelkader Boudih']
   spec.email = ['oss@seuros.com']
   spec.summary = 'Native bounded priority inheritance and resource ceiling decisions'
-  spec.description = 'Thin Ruby adapter to the standalone allocation-free arbiter-machines Rust core. ' \
-                     'Initial unstable local implementation; caller enforces all decisions.'
+  spec.description = 'Thin Ruby adapter to the standalone allocation-free arbiter-machines Rust core: ' \
+                     'who may take a resource, who waits, who inherits priority, and who would deadlock. ' \
+                     'The caller takes and releases the actual locks.'
   spec.homepage = 'https://github.com/seuros/arbiter_machines'
   spec.license = 'MIT'
   spec.required_ruby_version = '>= 4.0.0'

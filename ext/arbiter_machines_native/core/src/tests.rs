@@ -1,7 +1,7 @@
 extern crate std;
 
 use super::*;
-use matryona_machines::testing::{refuses, unchanged};
+use matryona_machines::testing::{describes, refuses, unchanged};
 
 mod model;
 
@@ -115,19 +115,15 @@ fn readers_and_empty_shapes_are_well_defined() {
 
 #[test]
 fn refusals_describe_themselves() {
-    use std::string::ToString;
-    let all = [
-        Refusal::UnknownTask,
-        Refusal::UnknownResource,
-        Refusal::AboveCeiling,
-        Refusal::Deadlock,
-        Refusal::Unowned,
-        Refusal::WrongOwner,
-    ];
-    for (index, refusal) in all.iter().enumerate() {
-        let text = refusal.to_string();
-        assert_ne!(text, "");
-        assert!(all[..index].iter().all(|other| other.to_string() != text));
-        let _: &dyn core::error::Error = refusal;
-    }
+    describes(&[
+        (Refusal::UnknownTask, "no such task"),
+        (Refusal::UnknownResource, "no such resource"),
+        (
+            Refusal::AboveCeiling,
+            "task priority is above the resource ceiling",
+        ),
+        (Refusal::Deadlock, "waiting would close a wait-for cycle"),
+        (Refusal::Unowned, "nobody owns the resource"),
+        (Refusal::WrongOwner, "another task owns the resource"),
+    ]);
 }
