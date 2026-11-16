@@ -302,5 +302,7 @@ pub fn define(ruby: &Ruby, module: RModule) -> Result<(), Error> {
     class.define_method("waiting_on", method!(Wrapper::waiting_on, 1))?;
     class.define_method("protocol", method!(Wrapper::protocol, 0))?;
     class.define_method("task_count", method!(Wrapper::task_count, 0))?;
-    class.define_method("resource_count", method!(Wrapper::resource_count, 0))
+    class.define_method("resource_count", method!(Wrapper::resource_count, 0))?;
+    // `new` answers a Wrapper: fix its class now, so building one runs no Ruby.
+    Class::pin_wrapped::<Wrapper>(ruby, class).map(drop)
 }
